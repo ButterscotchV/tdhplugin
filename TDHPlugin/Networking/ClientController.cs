@@ -15,12 +15,11 @@ namespace TDHPlugin.Networking
 		public NetworkStream networkStream;
 		public StreamReader reader;
 
-		[NotNull]
-		public IClientControllerListener requestListener;
+		[NotNull] public IClientControllerListener requestListener;
 
 		private readonly Thread clientThread;
 
-		private int networkId = 0;
+		private int networkId;
 
 		public ClientController([NotNull] IClientControllerListener requestListener)
 		{
@@ -38,7 +37,7 @@ namespace TDHPlugin.Networking
 				if (message == null || !message.Contains(":"))
 					continue;
 
-				string[] splitMessage = message.Split(new char[] { ':' }, 2);
+				string[] splitMessage = message.Split(new char[] {':'}, 2);
 
 				if (splitMessage.Length != 2)
 					continue;
@@ -57,7 +56,7 @@ namespace TDHPlugin.Networking
 
 					SendMessage(requestListener.OnClientRequest(this, new NetworkRequest(id.Substring(1), content)));
 				}
-				else if(id[0] == NetworkResponse.Indicator)
+				else if (id[0] == NetworkResponse.Indicator)
 				{
 					if (id.Length <= 1)
 						continue;
