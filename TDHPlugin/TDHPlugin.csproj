@@ -35,12 +35,19 @@
   <ItemGroup>
     <Reference Include="Smod2">
       <HintPath>..\..\SCPSL\Smod2.dll</HintPath>
+      <Private>False</Private>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Networking\ClientController.cs" />
+    <Compile Include="Networking\IClientControllerListener.cs" />
+    <Compile Include="Networking\NetworkMessage\INetworkResponseListener.cs" />
+    <Compile Include="Networking\NetworkMessage\NetworkRequest.cs" />
+    <Compile Include="Networking\NetworkMessage\NetworkResponse.cs" />
+    <Compile Include="Networking\NetworkMessage\NetworkMessage.cs" />
     <Compile Include="TDHPlugin.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
