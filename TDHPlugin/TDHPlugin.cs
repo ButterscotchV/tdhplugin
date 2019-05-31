@@ -58,7 +58,7 @@ namespace TDHPlugin
 		{
 			Info($"Request ({request.id}): \"{request.content}\"");
 
-			return new NetworkResponse(controller.GenerateMessage("Hello, world!"));
+			return new NetworkResponse(request.id, "Hello, world!");
 		}
 
 		public void OnClientResponse(ClientController controller, NetworkResponse response)
