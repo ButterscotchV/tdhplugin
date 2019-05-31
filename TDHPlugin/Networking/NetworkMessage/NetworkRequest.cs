@@ -3,7 +3,7 @@ using System.Linq;
 
 namespace TDHPlugin.Networking.NetworkMessage
 {
-	public class NetworkRequest: NetworkMessage
+	public class NetworkRequest : NetworkMessage
 	{
 		private const char Indicator = 'Q';
 

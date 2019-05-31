@@ -48,6 +48,7 @@
     <Compile Include="Networking\NetworkMessage\NetworkRequest.cs" />
     <Compile Include="Networking\NetworkMessage\NetworkResponse.cs" />
     <Compile Include="Networking\NetworkMessage\NetworkMessage.cs" />
+    <Compile Include="Networking\ScannerSimulator.cs" />
     <Compile Include="TDHPlugin.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

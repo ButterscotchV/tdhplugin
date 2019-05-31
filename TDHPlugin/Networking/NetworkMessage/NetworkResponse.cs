@@ -2,7 +2,7 @@
 
 namespace TDHPlugin.Networking.NetworkMessage
 {
-	public class NetworkResponse: NetworkMessage
+	public class NetworkResponse : NetworkMessage
 	{
 		private const char Indicator = 'R';
 

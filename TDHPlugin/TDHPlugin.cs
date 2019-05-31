@@ -1,3 +1,4 @@
+using System;
 using Smod2;
 using Smod2.Attributes;
 using Smod2.Config;
@@ -17,14 +18,12 @@ namespace TDHPlugin
 		SmodMajor = 3,
 		SmodMinor = 4,
 		SmodRevision = 1
-		)]
+	)]
 	public class TDHPlugin : Plugin, IClientControllerListener
 	{
-		[ConfigOption]
-		public readonly string botIp = "127.0.0.1";
+		[ConfigOption] public readonly string botIp = "127.0.0.1";
 
-		[ConfigOption]
-		public readonly int botPort = 41242;
+		[ConfigOption] public readonly int botPort = 41242;
 
 		public ClientController Client { get; private set; }
 
@@ -51,17 +50,17 @@ namespace TDHPlugin
 
 		public NetworkResponse OnClientRequest(ClientController controller, NetworkRequest request)
 		{
-			throw new System.NotImplementedException();
+			throw new NotImplementedException();
 		}
 
 		public void OnClientResponse(ClientController controller, NetworkResponse response)
 		{
-			throw new System.NotImplementedException();
+			throw new NotImplementedException();
 		}
 
 		public void OnClientDisconnect(ClientController controller)
 		{
-			throw new System.NotImplementedException();
+			throw new NotImplementedException();
 		}
 	}
 }
