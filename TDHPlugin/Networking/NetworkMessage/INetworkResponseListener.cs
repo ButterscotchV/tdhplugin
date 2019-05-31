@@ -1,7 +1,9 @@
-﻿namespace TDHPlugin.Networking.NetworkMessage
+﻿using JetBrains.Annotations;
+
+namespace TDHPlugin.Networking.NetworkMessage
 {
 	public interface INetworkResponseListener
 	{
-		void OnNetworkResponse(NetworkRequest request, NetworkResponse response);
+		void OnNetworkResponse([NotNull] NetworkRequest request, [NotNull] NetworkResponse response);
 	}
 }

@@ -29,6 +29,7 @@ namespace TDHPlugin
 
 		public override void OnDisable()
 		{
+			Client?.Close();
 			Info(Details.name + " v" + Details.version + " was disabled.");
 		}
 
@@ -43,24 +44,26 @@ namespace TDHPlugin
 		{
 		}
 
+		public void OnClientDisconnect(ClientController controller)
+		{
+			throw new NotImplementedException();
+		}
+
 		public void OnClientMessage(ClientController controller, NetworkMessage message)
 		{
-			Info(message.content);
+			Info($"Message ({message.id}): \"{message.content}\"");
 		}
 
 		public NetworkResponse OnClientRequest(ClientController controller, NetworkRequest request)
 		{
-			throw new NotImplementedException();
+			Info($"Request ({request.id}): \"{request.content}\"");
+
+			return new NetworkResponse(controller.GenerateMessage("Hello, world!"));
 		}
 
 		public void OnClientResponse(ClientController controller, NetworkResponse response)
 		{
-			throw new NotImplementedException();
-		}
-
-		public void OnClientDisconnect(ClientController controller)
-		{
-			throw new NotImplementedException();
+			Info($"Response ({response.id}): \"{response.content}\"");
 		}
 	}
 }
