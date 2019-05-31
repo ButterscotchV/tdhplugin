@@ -33,6 +33,10 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Assembly-CSharp-firstpass">
+      <HintPath>..\..\SCPSL\Assembly-CSharp-firstpass.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="Smod2">
       <HintPath>..\..\SCPSL\Smod2.dll</HintPath>
       <Private>False</Private>
@@ -40,6 +44,10 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml" />
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>..\..\SCPSL\UnityEngine.CoreModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Networking\ClientController.cs" />
@@ -48,7 +56,6 @@
     <Compile Include="Networking\NetworkMessage\NetworkRequest.cs" />
     <Compile Include="Networking\NetworkMessage\NetworkResponse.cs" />
     <Compile Include="Networking\NetworkMessage\NetworkMessage.cs" />
-    <Compile Include="Networking\ScannerSimulator.cs" />
     <Compile Include="TDHPlugin.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
