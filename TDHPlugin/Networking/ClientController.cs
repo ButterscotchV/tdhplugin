@@ -107,10 +107,12 @@ namespace TDHPlugin.Networking
 			}
 			catch (SocketException)
 			{
+				Socket = null;
 				return false;
 			}
 			catch (ObjectDisposedException)
 			{
+				Socket = null;
 				return false;
 			}
 
