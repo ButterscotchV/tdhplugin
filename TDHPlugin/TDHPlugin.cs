@@ -1,4 +1,4 @@
-using System.Threading;
+﻿using System.Threading;
 using Smod2;
 using Smod2.Attributes;
 using Smod2.Config;
@@ -9,7 +9,7 @@ namespace TDHPlugin
 {
 	[PluginDetails(
 		author = "Dankrushen",
-		name = "Test",
+		name = "TDHPlugin",
 		description = "A plugin for connecting SCP: SL to Discord",
 		id = "dankrushen.tdh.plugin",
 		configPrefix = "tdh",
@@ -137,7 +137,14 @@ namespace TDHPlugin
 		{
 			Info($"Request ({request.id}): \"{request.content}\"");
 
-			return new NetworkResponse(request.id, "Hello, world!");
+			switch (request.content.ToLower())
+			{
+				case "test":
+					return new NetworkResponse(request.id, "Testing");
+
+				default:
+					return new NetworkResponse(request.id, "Hello, world!");
+			}
 		}
 
 		public void OnClientResponse(ClientController controller, NetworkResponse response)
