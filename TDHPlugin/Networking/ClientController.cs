@@ -23,6 +23,28 @@ namespace TDHPlugin.Networking
 
 		private int networkId = int.MinValue;
 
+		public bool IsConnected
+		{
+			get
+			{
+				if (!socket.Connected)
+					return false;
+
+				try
+				{
+					return !(socket.Poll(1, SelectMode.SelectRead) && socket.Available == 0);
+				}
+				catch (SocketException)
+				{
+					return false;
+				}
+				catch (ObjectDisposedException)
+				{
+					return false;
+				}
+			}
+		}
+
 		public ClientController([NotNull] IClientControllerListener requestListener)
 		{
 			this.requestListener = requestListener;
@@ -37,11 +59,9 @@ namespace TDHPlugin.Networking
 				try
 				{
 					int id = socket.ReceiveInt(intBuffer);
-					int typeIdInt = socket.ReceiveInt(intBuffer);
 
-					TDHPlugin.Write($"{nameof(typeIdInt)}: {typeIdInt}");
+					NetworkMessage.NetworkMessageType typeId = NetworkMessage.TypeFromId(socket.ReceiveInt(intBuffer));
 
-					NetworkMessage.NetworkMessageType typeId = NetworkMessage.TypeFromId(typeIdInt);
 					string message = reader.ReadLine();
 
 					if (message == null)
@@ -80,26 +100,35 @@ namespace TDHPlugin.Networking
 			}
 		}
 
-		public bool IsConnected()
+		public bool Connect([NotNull] string ip, int port)
 		{
 			try
 			{
-				return !(socket.Poll(1, SelectMode.SelectRead) && socket.Available == 0);
+				socket.Connect(ip, port);
 			}
 			catch (SocketException)
 			{
 				return false;
 			}
-		}
-
-		public void Connect([NotNull] string ip, int port)
-		{
-			socket.Connect(ip, port);
+			catch (ObjectDisposedException)
+			{
+				return false;
+			}
 
 			networkStream = new NetworkStream(socket, false);
 			reader = new StreamReader(networkStream, Encoding.UTF8);
 
 			clientThread.Start();
+
+			return true;
+		}
+
+		internal bool DisconnectedCheck()
+		{
+			if (IsConnected) return false;
+
+			OnDisconnect();
+			return true;
 		}
 
 		private void OnDisconnect()

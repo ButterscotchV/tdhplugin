@@ -13,8 +13,6 @@ namespace TDHPlugin.Networking
 		{
 			int numBytesReceived = socket.Receive(intBuffer, 0, 4, socketFlags);
 
-			TDHPlugin.Write($"{nameof(numBytesReceived)}: {numBytesReceived}");
-
 			if (numBytesReceived < 0)
 				throw new IntegerReceiveException();
 
