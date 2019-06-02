@@ -1,10 +1,10 @@
-﻿using System.IO;
-using System.Linq;
+﻿using System;
+using System.IO;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using JetBrains.Annotations;
-using TDHPlugin.Networking.NetworkMessage;
+using TDHPlugin.Networking.NetworkMessages;
 
 namespace TDHPlugin.Networking
 {
@@ -15,11 +15,13 @@ namespace TDHPlugin.Networking
 		public NetworkStream networkStream;
 		public StreamReader reader;
 
+		[NotNull] private readonly byte[] intBuffer = new byte[4];
+
 		[NotNull] public IClientControllerListener requestListener;
 
 		private readonly Thread clientThread;
 
-		private int networkId;
+		private int networkId = int.MinValue;
 
 		public ClientController([NotNull] IClientControllerListener requestListener)
 		{
@@ -32,41 +34,61 @@ namespace TDHPlugin.Networking
 		{
 			while (socket.Connected)
 			{
-				string message = reader.ReadLine();
-
-				if (message == null || !message.Contains(":"))
-					continue;
-
-				string[] splitMessage = message.Split(new char[] {':'}, 2);
-
-				if (splitMessage.Length != 2)
-					continue;
-
-				string id = splitMessage[0];
-
-				if (!id.Trim().Any())
-					continue;
-
-				string content = splitMessage[1];
-
-				if (id[0] == NetworkRequest.Indicator)
+				try
 				{
-					if (id.Length <= 1)
+					int id = socket.ReceiveInt(intBuffer);
+					int typeIdInt = socket.ReceiveInt(intBuffer);
+
+					TDHPlugin.Write($"{nameof(typeIdInt)}: {typeIdInt}");
+
+					NetworkMessage.NetworkMessageType typeId = NetworkMessage.TypeFromId(typeIdInt);
+					string message = reader.ReadLine();
+
+					if (message == null)
 						continue;
 
-					SendMessage(requestListener.OnClientRequest(this, new NetworkRequest(id.Substring(1), content)));
-				}
-				else if (id[0] == NetworkResponse.Indicator)
-				{
-					if (id.Length <= 1)
-						continue;
+					switch (typeId)
+					{
+						case NetworkMessage.NetworkMessageType.Message:
+							requestListener.OnClientMessage(this, new NetworkMessage(id, message));
+							break;
 
-					requestListener.OnClientResponse(this, new NetworkResponse(id.Substring(1), content));
+						case NetworkMessage.NetworkMessageType.Request:
+							SendMessage(requestListener.OnClientRequest(this, new NetworkRequest(id, message)));
+							break;
+
+						case NetworkMessage.NetworkMessageType.Response:
+							requestListener.OnClientResponse(this, new NetworkResponse(id, message));
+							break;
+					}
 				}
-				else
+				catch (SocketException)
 				{
-					requestListener.OnClientMessage(this, new NetworkMessage.NetworkMessage(id, content));
+					OnDisconnect();
 				}
+				catch (ObjectDisposedException)
+				{
+					OnDisconnect();
+				}
+				catch (SocketExtensions.IntegerReceiveException)
+				{
+				}
+				catch (Exception e)
+				{
+					TDHPlugin.WriteError($"Error in ClientController:\n{e}");
+				}
+			}
+		}
+
+		public bool IsConnected()
+		{
+			try
+			{
+				return !(socket.Poll(1, SelectMode.SelectRead) && socket.Available == 0);
+			}
+			catch (SocketException)
+			{
+				return false;
 			}
 		}
 
@@ -80,6 +102,12 @@ namespace TDHPlugin.Networking
 			clientThread.Start();
 		}
 
+		private void OnDisconnect()
+		{
+			Close();
+			requestListener.OnClientDisconnect(this);
+		}
+
 		public void Close()
 		{
 			clientThread.Abort();
@@ -90,19 +118,24 @@ namespace TDHPlugin.Networking
 			socket.Disconnect(true);
 		}
 
-		public void Write([NotNull] string message)
+		public void Write(int id, [NotNull] string message, NetworkMessage.NetworkMessageType type = NetworkMessage.NetworkMessageType.Message)
 		{
-			socket.Send(Encoding.UTF8.GetBytes($"{message}{'\n'}"));
+			lock (socket)
+			{
+				socket.Send(id.ToBytes());
+				socket.Send(((int) type).ToBytes());
+				socket.Send(Encoding.UTF8.GetBytes($"{message}{'\n'}"));
+			}
 		}
 
-		public NetworkMessage.NetworkMessage GenerateMessage([NotNull] string content)
+		public NetworkMessage GenerateMessage([NotNull] string content)
 		{
-			return new NetworkMessage.NetworkMessage(networkId++.ToString(), content);
+			return new NetworkMessage(unchecked(networkId++), content);
 		}
 
-		public void SendMessage([NotNull] NetworkMessage.NetworkMessage message)
+		public void SendMessage([NotNull] NetworkMessage message)
 		{
-			Write(message.ToString());
+			Write(message.id, message.ToString(), message.GetNetworkMessageType());
 		}
 	}
 }

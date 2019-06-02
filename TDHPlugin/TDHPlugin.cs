@@ -3,7 +3,7 @@ using Smod2;
 using Smod2.Attributes;
 using Smod2.Config;
 using TDHPlugin.Networking;
-using TDHPlugin.Networking.NetworkMessage;
+using TDHPlugin.Networking.NetworkMessages;
 
 namespace TDHPlugin
 {
@@ -25,12 +25,13 @@ namespace TDHPlugin
 
 		[ConfigOption] public readonly int botPort = 41242;
 
+		public static TDHPlugin Singleton { get; private set; }
+
 		public ClientController Client { get; private set; }
 
-		public override void OnDisable()
+		public override void Register()
 		{
-			Client?.Close();
-			Info(Details.name + " v" + Details.version + " was disabled.");
+			Singleton = this;
 		}
 
 		public override void OnEnable()
@@ -40,8 +41,25 @@ namespace TDHPlugin
 			Info(Details.name + " v" + Details.version + " has loaded.");
 		}
 
-		public override void Register()
+		public override void OnDisable()
 		{
+			Client?.Close();
+			Info(Details.name + " v" + Details.version + " was disabled.");
+		}
+
+		public static void Write(string message)
+		{
+			Singleton?.Info(message);
+		}
+
+		public static void WriteWarning(string message)
+		{
+			Singleton?.Warn(message);
+		}
+
+		public static void WriteError(string message)
+		{
+			Singleton?.Error(message);
 		}
 
 		public void OnClientDisconnect(ClientController controller)

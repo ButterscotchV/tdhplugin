@@ -1,6 +1,6 @@
 ﻿using JetBrains.Annotations;
 
-namespace TDHPlugin.Networking.NetworkMessage
+namespace TDHPlugin.Networking.NetworkMessages
 {
 	public interface INetworkResponseListener
 	{

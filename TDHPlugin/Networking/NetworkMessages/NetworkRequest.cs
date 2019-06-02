@@ -1,13 +1,11 @@
 ﻿using System.Collections.Generic;
 using JetBrains.Annotations;
 
-namespace TDHPlugin.Networking.NetworkMessage
+namespace TDHPlugin.Networking.NetworkMessages
 {
 	public class NetworkRequest : NetworkMessage
 	{
-		public const char Indicator = 'Q';
-
-		public NetworkRequest([NotNull] string id, [NotNull] string content, INetworkResponseListener responseListener = null) : base(id, content)
+		public NetworkRequest(int id, [NotNull] string content, INetworkResponseListener responseListener = null) : base(id, content)
 		{
 			if (responseListener != null)
 				responseListeners.Add(responseListener);
@@ -17,11 +15,13 @@ namespace TDHPlugin.Networking.NetworkMessage
 		{
 		}
 
+		public new const NetworkMessageType MessageType = NetworkMessageType.Request;
+
 		public readonly List<INetworkResponseListener> responseListeners = new List<INetworkResponseListener>();
 
-		public override string ToString()
+		public override NetworkMessageType GetNetworkMessageType()
 		{
-			return $"{Indicator}{id}:{content}";
+			return MessageType;
 		}
 
 		public void AddResponseListener([NotNull] INetworkResponseListener responseListener)

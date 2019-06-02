@@ -17,7 +17,7 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>..\Builds\</OutputPath>
+    <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -48,10 +48,12 @@
   <ItemGroup>
     <Compile Include="Networking\ClientController.cs" />
     <Compile Include="Networking\IClientControllerListener.cs" />
-    <Compile Include="Networking\NetworkMessage\INetworkResponseListener.cs" />
-    <Compile Include="Networking\NetworkMessage\NetworkRequest.cs" />
-    <Compile Include="Networking\NetworkMessage\NetworkResponse.cs" />
-    <Compile Include="Networking\NetworkMessage\NetworkMessage.cs" />
+    <Compile Include="Networking\NetworkMessages\INetworkResponseListener.cs" />
+    <Compile Include="Networking\NetworkMessages\NetworkRequest.cs" />
+    <Compile Include="Networking\NetworkMessages\NetworkResponse.cs" />
+    <Compile Include="Networking\NetworkMessages\NetworkMessage.cs" />
+    <Compile Include="Networking\SocketExtensions.cs" />
+    <Compile Include="Networking\IntExtensions.cs" />
     <Compile Include="TDHPlugin.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
