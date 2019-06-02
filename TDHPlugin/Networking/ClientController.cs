@@ -10,7 +10,7 @@ namespace TDHPlugin.Networking
 {
 	public class ClientController
 	{
-		public readonly Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+		public Socket Socket { get; private set; }
 
 		public NetworkStream networkStream;
 		public StreamReader reader;
@@ -19,7 +19,7 @@ namespace TDHPlugin.Networking
 
 		[NotNull] public IClientControllerListener requestListener;
 
-		private readonly Thread clientThread;
+		private Thread clientThread;
 
 		private int networkId = int.MinValue;
 
@@ -27,12 +27,12 @@ namespace TDHPlugin.Networking
 		{
 			get
 			{
-				if (!socket.Connected)
-					return false;
-
 				try
 				{
-					return !(socket.Poll(1, SelectMode.SelectRead) && socket.Available == 0);
+					if (!Socket?.Connected ?? true)
+						return false;
+
+					return !(Socket.Poll(1, SelectMode.SelectRead) && Socket.Available == 0);
 				}
 				catch (SocketException)
 				{
@@ -48,19 +48,17 @@ namespace TDHPlugin.Networking
 		public ClientController([NotNull] IClientControllerListener requestListener)
 		{
 			this.requestListener = requestListener;
-
-			clientThread = new Thread(ClientThread);
 		}
 
 		public void ClientThread()
 		{
-			while (socket.Connected)
+			while (Socket != null)
 			{
 				try
 				{
-					int id = socket.ReceiveInt(intBuffer);
+					int id = Socket.ReceiveInt(intBuffer);
 
-					NetworkMessage.NetworkMessageType typeId = NetworkMessage.TypeFromId(socket.ReceiveInt(intBuffer));
+					NetworkMessage.NetworkMessageType typeId = NetworkMessage.TypeFromId(Socket.ReceiveInt(intBuffer));
 
 					string message = reader.ReadLine();
 
@@ -104,7 +102,8 @@ namespace TDHPlugin.Networking
 		{
 			try
 			{
-				socket.Connect(ip, port);
+				Socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+				Socket.Connect(ip, port);
 			}
 			catch (SocketException)
 			{
@@ -115,9 +114,10 @@ namespace TDHPlugin.Networking
 				return false;
 			}
 
-			networkStream = new NetworkStream(socket, false);
+			networkStream = new NetworkStream(Socket, false);
 			reader = new StreamReader(networkStream, Encoding.UTF8);
 
+			clientThread = new Thread(ClientThread);
 			clientThread.Start();
 
 			return true;
@@ -140,20 +140,31 @@ namespace TDHPlugin.Networking
 		public void Close()
 		{
 			clientThread.Abort();
+			clientThread = null;
 
 			reader.Close();
 			networkStream.Close();
 
-			socket.Disconnect(true);
+			try
+			{
+				Socket?.Disconnect(false);
+				Socket = null;
+			}
+			catch (SocketException)
+			{
+			}
+			catch (ObjectDisposedException)
+			{
+			}
 		}
 
 		public void Write(int id, [NotNull] string message, NetworkMessage.NetworkMessageType type = NetworkMessage.NetworkMessageType.Message)
 		{
-			lock (socket)
+			lock (Socket)
 			{
-				socket.Send(id.ToBytes());
-				socket.Send(((int) type).ToBytes());
-				socket.Send(Encoding.UTF8.GetBytes($"{message}{'\n'}"));
+				Socket.Send(id.ToBytes());
+				Socket.Send(((int) type).ToBytes());
+				Socket.Send(Encoding.UTF8.GetBytes($"{message}{'\n'}"));
 			}
 		}
 

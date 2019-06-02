@@ -1,13 +1,9 @@
-using System;
 using System.Threading;
 using Smod2;
 using Smod2.Attributes;
 using Smod2.Config;
-using Smod2.EventHandlers;
-using Smod2.Events;
 using TDHPlugin.Networking;
 using TDHPlugin.Networking.NetworkMessages;
-using UnityEngine;
 
 namespace TDHPlugin
 {
@@ -25,19 +21,19 @@ namespace TDHPlugin
 	)]
 	public class TDHPlugin : Plugin, IClientControllerListener
 	{
-		[ConfigOption] public static readonly string botIp = "127.0.0.1";
-		[ConfigOption] public static readonly int botPort = 41242;
+		[ConfigOption] public readonly string botIp = "127.0.0.1";
+		[ConfigOption] public readonly int botPort = 41242;
 
 		public static TDHPlugin Singleton { get; private set; }
 
 		public static ClientController Client { get; private set; }
 
-		public Thread reconnectThread = new Thread(ClientReconnectThread);
-		[ConfigOption] private static readonly int disconnectCheckDelayMs = 250;
-		[ConfigOption] private static readonly int reconnectDelayMs = 1000;
+		public Thread reconnectThread { get; private set; }
+		[ConfigOption] private readonly int disconnectCheckDelayMs = 250;
+		[ConfigOption] private readonly int reconnectDelayMs = 1000;
 		private static bool reconnect = true;
 
-		[ConfigOption] private static readonly int maxRetryPrints = 2;
+		[ConfigOption] private readonly int maxRetryPrints = 5;
 		private static int retryPrintCount;
 
 		private static bool clientEnabled;
@@ -51,6 +47,7 @@ namespace TDHPlugin
 		{
 			Client = new ClientController(this);
 			clientEnabled = true;
+			reconnectThread = new Thread(ClientReconnectThread);
 			reconnectThread.Start();
 
 			Info(Details.name + " v" + Details.version + " has loaded.");
@@ -60,6 +57,7 @@ namespace TDHPlugin
 		{
 			clientEnabled = false;
 			reconnectThread.Abort();
+			reconnectThread = null;
 			Client?.Close();
 
 			Info(Details.name + " v" + Details.version + " was disabled.");
@@ -86,12 +84,12 @@ namespace TDHPlugin
 			{
 				if (reconnect)
 				{
-					bool shouldPrint = retryPrintCount < maxRetryPrints;
+					bool shouldPrint = Singleton.maxRetryPrints <= 0 || retryPrintCount < Singleton.maxRetryPrints;
 
 					if (shouldPrint)
 						Write("Attempting connection to TDH Bot...");
 
-					if (Client.Connect(botIp, botPort))
+					if (Client.Connect(Singleton.botIp, Singleton.botPort))
 					{
 						reconnect = false;
 						retryPrintCount = 0;
@@ -101,22 +99,22 @@ namespace TDHPlugin
 					else
 					{
 						if (shouldPrint)
-							Write($"Failed to connect to TDH Bot, retrying in {reconnectDelayMs} ms...");
+							Write($"Failed to connect to TDH Bot, retrying in {Singleton.reconnectDelayMs} ms...");
+
+						unchecked
+						{
+							retryPrintCount++;
+						}
+
+						if (retryPrintCount == Singleton.maxRetryPrints)
+							Write($"Hit max retry messages ({Singleton.maxRetryPrints}), no longer printing retries.");
+
+						Thread.Sleep(Singleton.reconnectDelayMs);
 					}
-
-					unchecked
-					{
-						retryPrintCount++;
-					}
-
-					if (retryPrintCount == maxRetryPrints)
-						Write($"Hit max retry messages ({maxRetryPrints}), no longer printing retries.");
-
-					Thread.Sleep(reconnectDelayMs);
 				}
 				else
 				{
-					Thread.Sleep(disconnectCheckDelayMs);
+					Thread.Sleep(Singleton.disconnectCheckDelayMs);
 
 					Client.DisconnectedCheck();
 				}
