@@ -56,6 +56,10 @@
     <Compile Include="Networking\IntExtensions.cs" />
     <Compile Include="TDHPlugin.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="TimedObject\TimedObject.cs" />
+    <Compile Include="TimedObject\TimedObjectManager.cs" />
+    <Compile Include="TimedObject\TimeSpanExtensions.cs" />
+    <Compile Include="TimedObject\TimeUtils.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
