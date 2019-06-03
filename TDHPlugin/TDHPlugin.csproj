@@ -52,6 +52,7 @@
     <Compile Include="Networking\NetworkMessages\NetworkRequest.cs" />
     <Compile Include="Networking\NetworkMessages\NetworkResponse.cs" />
     <Compile Include="Networking\NetworkMessages\NetworkMessage.cs" />
+    <Compile Include="Networking\NetworkMessages\NetworkResponseFuture.cs" />
     <Compile Include="Networking\SocketExtensions.cs" />
     <Compile Include="Networking\IntExtensions.cs" />
     <Compile Include="TDHPlugin.cs" />

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading;
+using JetBrains.Annotations;
 
 namespace TDHPlugin.TimedObject
 {
@@ -15,7 +16,7 @@ namespace TDHPlugin.TimedObject
 			set
 			{
 				if (value < TimeSpan.Zero)
-					throw new ArgumentException("Timeout must not be less than 0", nameof(CheckDelay));
+					throw new ArgumentException($"{nameof(CheckDelay)} must not be less than 0", nameof(CheckDelay));
 
 				checkDelay = value;
 			}
@@ -25,13 +26,15 @@ namespace TDHPlugin.TimedObject
 
 		public Thread CheckThread { get; private set; }
 
-		public TimedObjectManager(TimeSpan checkDelay)
+		public TimedObjectManager(TimeSpan? checkDelay = null, bool runOnInit = false)
 		{
-			CheckDelay = checkDelay;
-			Run();
+			CheckDelay = checkDelay ?? TimeSpan.FromSeconds(1);
+
+			if (runOnInit)
+				Run();
 		}
 
-		public TimedObjectManager(long checkDelay, TimeUnit checkUnit = TimeUnit.Seconds) : this(TimeUtils.TimeUnitToTimeSpan(checkDelay, checkUnit))
+		public TimedObjectManager(long checkDelay, TimeUnit checkUnit = TimeUnit.Seconds, bool runOnInit = false) : this(TimeUtils.TimeUnitToTimeSpan(checkDelay, checkUnit), runOnInit)
 		{
 		}
 
@@ -52,37 +55,61 @@ namespace TDHPlugin.TimedObject
 			{
 				Thread.Sleep(CheckDelay);
 
-				lock (timedObjects)
+				try
 				{
-					for (int i = timedObjects.Count - 1; i >= 0; i--)
+					lock (timedObjects)
 					{
-						TimedObject<T> timedObject = timedObjects[i];
-
-						if (timedObject.IsExpired())
+						for (int i = timedObjects.Count - 1; i >= 0; i--)
 						{
-							timedObjects.RemoveAt(i);
+							TimedObject<T> timedObject = timedObjects[i];
 
-							timedObject.onExpire?.Invoke(timedObject);
+							if (timedObject.finished)
+							{
+								FinishTimedObject(i);
+							}
+							else if (timedObject.IsExpired())
+							{
+								timedObjects.RemoveAt(i);
+
+								timedObject.onExpire?.Invoke(timedObject);
+							}
 						}
 					}
+				}
+				catch (Exception e)
+				{
+					TDHPlugin.WriteError($"Error while looping TimeoutCheckThread:\n{e}");
 				}
 			}
 		}
 
-		public TimedObject<T> FinishTimedObject(TimedObject<T> timedObject, bool executeOnFinish = true)
+		public TimedObject<T> FinishTimedObject(int timedObjectIndex, bool executeOnFinish = true)
 		{
+			TimedObject<T> timedObject;
+
 			lock (timedObjects)
 			{
-				if (!timedObjects.Contains(timedObject))
+				if (timedObjectIndex < 0 || timedObjectIndex >= timedObjects.Count)
 					return null;
 
-				timedObjects.Remove(timedObject);
+				timedObject = timedObjects[timedObjectIndex];
+				timedObjects.RemoveAt(timedObjectIndex);
 			}
 
 			if (executeOnFinish)
 				timedObject.onFinish?.Invoke(timedObject);
 
 			return timedObject;
+		}
+
+		public TimedObject<T> FinishTimedObject([NotNull] TimedObject<T> timedObject, bool executeOnFinish = true)
+		{
+			lock (timedObjects)
+			{
+				int timedObjectIndex = timedObjects.IndexOf(timedObject);
+
+				return FinishTimedObject(timedObjectIndex, executeOnFinish);
+			}
 		}
 	}
 }

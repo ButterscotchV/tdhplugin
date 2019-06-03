@@ -39,7 +39,7 @@ namespace TDHPlugin.Networking.NetworkMessages
 			responseListeners.Clear();
 		}
 
-		public void ExecuteListeners(NetworkResponse response)
+		public void ExecuteResponseHandlers(NetworkResponse response)
 		{
 			foreach (INetworkResponseListener responseListener in responseListeners)
 			{

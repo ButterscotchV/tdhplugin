@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using JetBrains.Annotations;
 
 namespace TDHPlugin.TimedObject
@@ -12,6 +8,7 @@ namespace TDHPlugin.TimedObject
 		[NotNull] public readonly T obj;
 
 		private TimeSpan timeout;
+
 		public TimeSpan Timeout
 		{
 			get => timeout;
@@ -30,6 +27,7 @@ namespace TDHPlugin.TimedObject
 		public double TimeoutMillis { get; private set; }
 
 		private DateTime startDateTime;
+
 		public DateTime StartDateTime
 		{
 			get => startDateTime;
@@ -46,6 +44,8 @@ namespace TDHPlugin.TimedObject
 		public Action<TimedObject<T>> onFinish;
 		public Action<TimedObject<T>> onExpire;
 
+		public bool finished;
+
 		public TimedObject([NotNull] T obj, TimeSpan timeout, DateTime? startDateTime = null, Action<TimedObject<T>> onFinish = null, Action<TimedObject<T>> onExpire = null)
 		{
 			this.obj = obj;
@@ -55,7 +55,7 @@ namespace TDHPlugin.TimedObject
 			this.onExpire = onExpire;
 		}
 
-		public TimedObject([NotNull] T obj, long timeout, TimeUnit timeoutUnit, DateTime? startDateTime = null, Action<TimedObject<T>> onFinish = null, Action<TimedObject<T>> onExpire = null): this(obj, TimeUtils.TimeUnitToTimeSpan(timeout, timeoutUnit), startDateTime, onFinish, onExpire)
+		public TimedObject([NotNull] T obj, long timeout, TimeUnit timeoutUnit, DateTime? startDateTime = null, Action<TimedObject<T>> onFinish = null, Action<TimedObject<T>> onExpire = null) : this(obj, TimeUtils.TimeUnitToTimeSpan(timeout, timeoutUnit), startDateTime, onFinish, onExpire)
 		{
 		}
 

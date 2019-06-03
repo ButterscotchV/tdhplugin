@@ -3,8 +3,10 @@ using System.IO;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using JetBrains.Annotations;
 using TDHPlugin.Networking.NetworkMessages;
+using TDHPlugin.TimedObject;
 
 namespace TDHPlugin.Networking
 {
@@ -20,6 +22,8 @@ namespace TDHPlugin.Networking
 		[NotNull] public IClientControllerListener requestListener;
 
 		private Thread clientThread;
+
+		public readonly TimedObjectManager<NetworkRequest> timedRequestManager = new TimedObjectManager<NetworkRequest>();
 
 		private int networkId = int.MinValue;
 
@@ -91,9 +95,13 @@ namespace TDHPlugin.Networking
 				catch (SocketExtensions.IntegerReceiveException)
 				{
 				}
+				catch (ThreadAbortException)
+				{
+					return;
+				}
 				catch (Exception e)
 				{
-					TDHPlugin.WriteError($"Error in ClientController:\n{e}");
+					TDHPlugin.WriteError($"Error in {nameof(ClientController)}:\n{e}");
 				}
 			}
 		}
@@ -115,6 +123,8 @@ namespace TDHPlugin.Networking
 				Socket = null;
 				return false;
 			}
+
+			timedRequestManager.Run();
 
 			networkStream = new NetworkStream(Socket, false);
 			reader = new StreamReader(networkStream, Encoding.UTF8);
@@ -147,6 +157,8 @@ namespace TDHPlugin.Networking
 			reader.Close();
 			networkStream.Close();
 
+			timedRequestManager.Shutdown();
+
 			try
 			{
 				Socket?.Disconnect(false);
@@ -178,6 +190,64 @@ namespace TDHPlugin.Networking
 		public void SendMessage([NotNull] NetworkMessage message)
 		{
 			Write(message.id, message.ToString(), message.GetNetworkMessageType());
+		}
+
+		public void SendRequest([NotNull] TimedObject<NetworkRequest> request)
+		{
+			lock (timedRequestManager.timedObjects)
+			{
+				timedRequestManager.timedObjects.Add(request);
+			}
+
+			SendMessage(request.obj);
+		}
+
+		[NotNull]
+		public NetworkResponseFuture SendRequestWaitable([NotNull] TimedObject<NetworkRequest> request)
+		{
+			NetworkResponseFuture future = new NetworkResponseFuture();
+			request.obj.AddResponseListener(future);
+
+			SendRequest(request);
+
+			return future;
+		}
+
+		public NetworkResponse SendRequestBlocking([NotNull] TimedObject<NetworkRequest> request)
+		{
+			try
+			{
+				Task<NetworkResponse> task = SendRequestWaitable(request).Task;
+
+				task.Wait();
+
+				return task.IsCompleted ? task.Result : null;
+			}
+			catch (AggregateException)
+			{
+				return null;
+			}
+		}
+
+		public TimedObject<NetworkRequest> GetRequest(int id)
+		{
+			lock (timedRequestManager.timedObjects)
+			{
+				foreach (TimedObject<NetworkRequest> request in timedRequestManager.timedObjects)
+				{
+					if (request.obj.id == id)
+						return request;
+				}
+			}
+
+			return null;
+		}
+
+		public void CompleteRequest(TimedObject<NetworkRequest> request, NetworkResponse response)
+		{
+			timedRequestManager.FinishTimedObject(request);
+
+			request.obj.ExecuteResponseHandlers(response);
 		}
 	}
 }
