@@ -6,6 +6,7 @@ using Smod2.Config;
 using TDHPlugin.Networking;
 using TDHPlugin.Networking.NetworkMessages;
 using TDHPlugin.TimedObject;
+using UnityEngine.Rendering;
 
 namespace TDHPlugin
 {
@@ -153,6 +154,9 @@ namespace TDHPlugin
 					Client.timedRequestManager.timedObjects.Add(new TimedObject<NetworkRequest>(new NetworkRequest(0, "TESTING"), requestTimeoutMs, TimeUnit.Millis, onFinish: OnNetworkRequestFinish, onExpire: OnNetworkRequestExpire));
 					Client.timedRequestManager.timedObjects.Add(new TimedObject<NetworkRequest>(new NetworkRequest(0, "TESTING"), requestTimeoutMs * 2, TimeUnit.Millis, onFinish: OnNetworkRequestFinish, onExpire: OnNetworkRequestExpire));
 					return new NetworkResponse(request.id, "Running TimedObject/TimedObjectManager test...");
+
+				case "requestblocking":
+					return new NetworkResponse(request.id, Client.SendRequestBlocking(new TimedObject<NetworkRequest>(new NetworkRequest(Client.GenerateMessage("Hello")), requestTimeoutMs, TimeUnit.Millis)).content);
 
 				default:
 					return new NetworkResponse(request.id, "Hello, world!");

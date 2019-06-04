@@ -72,15 +72,15 @@ namespace TDHPlugin.Networking
 					switch (typeId)
 					{
 						case NetworkMessage.NetworkMessageType.Message:
-							requestListener.OnClientMessage(this, new NetworkMessage(id, message));
+							ThreadPool.QueueUserWorkItem(state => requestListener.OnClientMessage(this, new NetworkMessage(id, message)));
 							break;
 
 						case NetworkMessage.NetworkMessageType.Request:
-							SendMessage(requestListener.OnClientRequest(this, new NetworkRequest(id, message)));
+							ThreadPool.QueueUserWorkItem(state => SendMessage(requestListener.OnClientRequest(this, new NetworkRequest(id, message))));
 							break;
 
 						case NetworkMessage.NetworkMessageType.Response:
-							requestListener.OnClientResponse(this, new NetworkResponse(id, message));
+							ThreadPool.QueueUserWorkItem(state => requestListener.OnClientResponse(this, new NetworkResponse(id, message)));
 							break;
 					}
 				}
@@ -213,20 +213,23 @@ namespace TDHPlugin.Networking
 			return future;
 		}
 
-		public NetworkResponse SendRequestBlocking([NotNull] TimedObject<NetworkRequest> request)
+		public NetworkResponse WaitOnRequest([NotNull] NetworkResponseFuture requestWaitable)
 		{
 			try
 			{
-				Task<NetworkResponse> task = SendRequestWaitable(request).Task;
+				requestWaitable.Task.Wait();
 
-				task.Wait();
-
-				return task.IsCompleted ? task.Result : null;
+				return requestWaitable.Task.IsCompleted ? requestWaitable.Task.Result : null;
 			}
 			catch (AggregateException)
 			{
 				return null;
 			}
+		}
+
+		public NetworkResponse SendRequestBlocking([NotNull] TimedObject<NetworkRequest> request)
+		{
+			return WaitOnRequest(SendRequestWaitable(request));
 		}
 
 		public TimedObject<NetworkRequest> GetRequest(int id)
