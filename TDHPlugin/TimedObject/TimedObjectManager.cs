@@ -46,7 +46,8 @@ namespace TDHPlugin.TimedObject
 
 		public void Shutdown()
 		{
-			CheckThread.Abort();
+			CheckThread?.Abort();
+			CheckThread = null;
 		}
 
 		public void TimeoutCheckThread()

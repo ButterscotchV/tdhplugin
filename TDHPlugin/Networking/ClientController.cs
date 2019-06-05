@@ -3,7 +3,6 @@ using System.IO;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using JetBrains.Annotations;
 using TDHPlugin.Networking.NetworkMessages;
 using TDHPlugin.TimedObject;
@@ -26,28 +25,6 @@ namespace TDHPlugin.Networking
 		public readonly TimedObjectManager<NetworkRequest> timedRequestManager = new TimedObjectManager<NetworkRequest>();
 
 		private int networkId = int.MinValue;
-
-		public bool IsConnected
-		{
-			get
-			{
-				try
-				{
-					if (!Socket?.Connected ?? true)
-						return false;
-
-					return !(Socket.Poll(1, SelectMode.SelectRead) && Socket.Available == 0);
-				}
-				catch (SocketException)
-				{
-					return false;
-				}
-				catch (ObjectDisposedException)
-				{
-					return false;
-				}
-			}
-		}
 
 		public ClientController([NotNull] IClientControllerListener requestListener)
 		{
@@ -135,14 +112,6 @@ namespace TDHPlugin.Networking
 			return true;
 		}
 
-		internal bool DisconnectedCheck()
-		{
-			if (IsConnected) return false;
-
-			OnDisconnect();
-			return true;
-		}
-
 		private void OnDisconnect()
 		{
 			Close();
@@ -151,18 +120,19 @@ namespace TDHPlugin.Networking
 
 		public void Close()
 		{
-			clientThread.Abort();
+			clientThread?.Abort();
 			clientThread = null;
 
-			reader.Close();
-			networkStream.Close();
+			reader?.Close();
+			reader = null;
+			networkStream?.Close();
+			networkStream = null;
 
 			timedRequestManager.Shutdown();
 
 			try
 			{
 				Socket?.Disconnect(false);
-				Socket = null;
 			}
 			catch (SocketException)
 			{
@@ -170,6 +140,36 @@ namespace TDHPlugin.Networking
 			catch (ObjectDisposedException)
 			{
 			}
+
+			Socket = null;
+		}
+
+		public bool IsConnected(bool executeOnDisconnect = true)
+		{
+			bool isConnected = false;
+
+			try
+			{
+				if (Socket?.Connected ?? false)
+				{
+					isConnected = !(Socket.Poll(1, SelectMode.SelectRead) && Socket.Available == 0);
+				}
+			}
+			catch (SocketException)
+			{
+				isConnected = false;
+			}
+			catch (ObjectDisposedException)
+			{
+				isConnected = false;
+			}
+
+			if (executeOnDisconnect && Socket != null && !isConnected)
+			{
+				OnDisconnect();
+			}
+
+			return isConnected;
 		}
 
 		public void Write(int id, [NotNull] string message, NetworkMessage.NetworkMessageType type = NetworkMessage.NetworkMessageType.Message)
