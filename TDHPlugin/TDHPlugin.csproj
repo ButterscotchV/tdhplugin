@@ -33,6 +33,14 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>..\..\SCPSL\Assembly-CSharp.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Assembly-CSharp-firstpass">
+      <HintPath>..\..\SCPSL\Assembly-CSharp-firstpass.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="Smod2">
       <HintPath>..\..\SCPSL\Smod2.dll</HintPath>
       <Private>False</Private>
@@ -48,6 +56,9 @@
   <ItemGroup>
     <Compile Include="Commands\CommandUtils.cs" />
     <Compile Include="Commands\PlayerConsoleCommandListener.cs" />
+    <Compile Include="EventHandlers\ClassSetHandler.cs" />
+    <Compile Include="Utils\PlayerPerkFetcher.cs" />
+    <Compile Include="EventHandlers\PlayerJoinHandler.cs" />
     <Compile Include="Networking\ClientController.cs" />
     <Compile Include="Networking\IClientControllerListener.cs" />
     <Compile Include="Networking\NetworkMessages\INetworkResponseListener.cs" />
@@ -63,6 +74,8 @@
     <Compile Include="TimedObject\TimedObjectManager.cs" />
     <Compile Include="TimedObject\TimeSpanExtensions.cs" />
     <Compile Include="TimedObject\TimeUtils.cs" />
+    <Compile Include="Utils\ReservedSlotManager.cs" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

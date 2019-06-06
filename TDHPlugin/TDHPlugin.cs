@@ -9,6 +9,7 @@ using Smod2.API;
 using Smod2.Attributes;
 using Smod2.Config;
 using TDHPlugin.Commands;
+using TDHPlugin.EventHandlers;
 using TDHPlugin.Networking;
 using TDHPlugin.Networking.NetworkMessages;
 using TDHPlugin.TimedObject;
@@ -48,11 +49,18 @@ namespace TDHPlugin
 
 		private static bool clientEnabled;
 
+		[ConfigOption] public readonly Dictionary<string, string> rolePerks = new Dictionary<string, string>();
+		[ConfigOption] public readonly string tagPrefix = "|Dankest Patreon|";
+		[ConfigOption] public readonly string tagColour = "magenta";
+
 		public override void Register()
 		{
 			Singleton = this;
 
 			AddEventHandlers(new PlayerConsoleCommandListener(this));
+
+			AddEventHandlers(new PlayerJoinHandler(this));
+			AddEventHandlers(new ClassSetHandler(this));
 		}
 
 		public override void OnEnable()
@@ -74,6 +82,11 @@ namespace TDHPlugin
 			Client?.Close();
 
 			Info(Details.name + " v" + Details.version + " was disabled.");
+		}
+
+		public static void WriteDebug([NotNull] string message)
+		{
+			Singleton?.Debug(message);
 		}
 
 		public static void Write([NotNull] string message)
@@ -233,7 +246,7 @@ namespace TDHPlugin
 			}
 		}
 
-		public static NetworkResponse SendClientRequest(string message)
+		public static NetworkResponse SendClientRequest([NotNull] string message)
 		{
 			if (!Client.IsConnected())
 				return null;
@@ -247,6 +260,31 @@ namespace TDHPlugin
 			}
 			catch (ObjectDisposedException)
 			{
+			}
+
+			return null;
+		}
+
+		public static string[] GetUserRoleIds([NotNull] string steamId)
+		{
+			NetworkResponse response = SendClientRequest($"GETDISCORDROLES {steamId} Plugin");
+			List<string> roleIds = new List<string>();
+
+			if (response != null)
+			{
+				roleIds.AddRange(response.content.Split(','));
+			}
+
+			return roleIds.ToArray();
+		}
+
+		public static string GetUserCustomTag([NotNull] string steamId)
+		{
+			NetworkResponse response = SendClientRequest($"GETCUSTOMTAG {steamId} Plugin");
+
+			if (response != null && !string.IsNullOrEmpty(response.content))
+			{
+				return response.content;
 			}
 
 			return null;
