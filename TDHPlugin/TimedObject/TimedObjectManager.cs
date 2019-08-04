@@ -48,6 +48,7 @@ namespace TDHPlugin.TimedObject
 		{
 			CheckThread?.Abort();
 			CheckThread = null;
+			CheckAndExpireObjects();
 		}
 
 		public void TimeoutCheckThread()
@@ -56,31 +57,36 @@ namespace TDHPlugin.TimedObject
 			{
 				Thread.Sleep(CheckDelay);
 
-				try
+				CheckAndExpireObjects();
+			}
+		}
+
+		public void CheckAndExpireObjects()
+		{
+			try
+			{
+				lock (timedObjects)
 				{
-					lock (timedObjects)
+					for (int i = timedObjects.Count - 1; i >= 0; i--)
 					{
-						for (int i = timedObjects.Count - 1; i >= 0; i--)
+						TimedObject<T> timedObject = timedObjects[i];
+
+						if (timedObject.finished)
 						{
-							TimedObject<T> timedObject = timedObjects[i];
+							FinishTimedObject(i);
+						}
+						else if (timedObject.IsExpired())
+						{
+							timedObjects.RemoveAt(i);
 
-							if (timedObject.finished)
-							{
-								FinishTimedObject(i);
-							}
-							else if (timedObject.IsExpired())
-							{
-								timedObjects.RemoveAt(i);
-
-								timedObject.onExpire?.Invoke(timedObject);
-							}
+							timedObject.onExpire?.Invoke(timedObject);
 						}
 					}
 				}
-				catch (Exception e)
-				{
-					TDHPlugin.WriteError($"Error while looping TimeoutCheckThread:\n{e}");
-				}
+			}
+			catch (Exception e)
+			{
+				TDHPlugin.WriteError($"Error in {nameof(CheckAndExpireObjects)}:\n{e}");
 			}
 		}
 

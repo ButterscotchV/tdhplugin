@@ -1,5 +1,4 @@
 ﻿using System;
-using System.IO;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -9,14 +8,11 @@ using TDHPlugin.TimedObject;
 
 namespace TDHPlugin.Networking
 {
-	public class ClientController
+	public class ClientController : IDisposable
 	{
 		public Socket Socket { get; private set; }
 
 		public NetworkStream networkStream;
-		public StreamReader reader;
-
-		[NotNull] private readonly byte[] intBuffer = new byte[4];
 
 		[NotNull] public IClientControllerListener requestListener;
 
@@ -26,6 +22,8 @@ namespace TDHPlugin.Networking
 
 		private int networkId = int.MinValue;
 
+		private bool disposed;
+
 		public ClientController([NotNull] IClientControllerListener requestListener)
 		{
 			this.requestListener = requestListener;
@@ -33,18 +31,24 @@ namespace TDHPlugin.Networking
 
 		public void ClientThread()
 		{
-			while (Socket != null)
+			byte[] intBuffer = new byte[4];
+
+			while (!disposed && Socket != null)
 			{
 				try
 				{
-					int id = Socket.ReceiveInt(intBuffer);
+					int id = networkStream.ReadInt(intBuffer);
 
-					NetworkMessage.NetworkMessageType typeId = NetworkMessage.TypeFromId(Socket.ReceiveInt(intBuffer));
+					NetworkMessage.NetworkMessageType typeId = NetworkMessage.TypeFromId(networkStream.ReadInt(intBuffer));
 
-					string message = reader.ReadLine();
-
-					if (message == null)
+					int length = networkStream.ReadInt(intBuffer);
+					if (length < 0)
+					{
+						TDHPlugin.WriteError("Error in received message: Invalid message length");
 						continue;
+					}
+
+					string message = length == 0 ? "" : networkStream.ReadString(length);
 
 					switch (typeId)
 					{
@@ -61,6 +65,10 @@ namespace TDHPlugin.Networking
 							break;
 					}
 				}
+				catch (AggregateException)
+				{
+					OnDisconnect();
+				}
 				catch (SocketException)
 				{
 					OnDisconnect();
@@ -69,8 +77,13 @@ namespace TDHPlugin.Networking
 				{
 					OnDisconnect();
 				}
-				catch (SocketExtensions.IntegerReceiveException)
+				catch (NetworkStreamExtensions.IntegerReadException e)
 				{
+					TDHPlugin.WriteError($"Error in {nameof(ClientController)} while receiving an integer:\n{e}");
+				}
+				catch (NetworkStreamExtensions.StringReadException e)
+				{
+					TDHPlugin.WriteError($"Error in {nameof(ClientController)} while receiving a string:\n{e}");
 				}
 				catch (ThreadAbortException)
 				{
@@ -90,21 +103,18 @@ namespace TDHPlugin.Networking
 				Socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 				Socket.Connect(ip, port);
 			}
-			catch (SocketException)
-			{
-				Socket = null;
-				return false;
-			}
-			catch (ObjectDisposedException)
+			catch (Exception)
 			{
 				Socket = null;
 				return false;
 			}
 
-			timedRequestManager.Run();
+			lock (timedRequestManager.timedObjects)
+			{
+				timedRequestManager.Run();
+			}
 
 			networkStream = new NetworkStream(Socket, false);
-			reader = new StreamReader(networkStream, Encoding.UTF8);
 
 			clientThread = new Thread(ClientThread);
 			clientThread.Start();
@@ -120,28 +130,7 @@ namespace TDHPlugin.Networking
 
 		public void Close()
 		{
-			clientThread?.Abort();
-			clientThread = null;
-
-			reader?.Close();
-			reader = null;
-			networkStream?.Close();
-			networkStream = null;
-
-			timedRequestManager.Shutdown();
-
-			try
-			{
-				Socket?.Disconnect(false);
-			}
-			catch (SocketException)
-			{
-			}
-			catch (ObjectDisposedException)
-			{
-			}
-
-			Socket = null;
+			Dispose();
 		}
 
 		public bool IsConnected(bool executeOnDisconnect = true)
@@ -178,13 +167,25 @@ namespace TDHPlugin.Networking
 			{
 				Socket.Send(id.ToBytes());
 				Socket.Send(((int) type).ToBytes());
-				Socket.Send(Encoding.UTF8.GetBytes($"{message}{'\n'}"));
+
+				byte[] messageBytes = Encoding.UTF8.GetBytes(message);
+
+				Socket.Send(messageBytes.Length.ToBytes());
+
+				if (messageBytes.Length > 0)
+					Socket.Send(messageBytes);
 			}
 		}
 
 		public NetworkMessage GenerateMessage([NotNull] string content)
 		{
 			return new NetworkMessage(unchecked(networkId++), content);
+		}
+
+
+		public NetworkRequest GenerateRequest([NotNull] string content, INetworkResponseListener responseListener = null)
+		{
+			return new NetworkRequest(unchecked(networkId++), content, responseListener);
 		}
 
 		public void SendMessage([NotNull] NetworkMessage message)
@@ -213,23 +214,47 @@ namespace TDHPlugin.Networking
 			return future;
 		}
 
-		public NetworkResponse WaitOnRequest([NotNull] NetworkResponseFuture requestWaitable)
+		public static NetworkResponse WaitOnRequest([NotNull] NetworkResponseFuture requestWaitable, TimeSpan? timeout = null)
 		{
 			try
 			{
-				requestWaitable.Task.Wait();
+				if (timeout.HasValue)
+					requestWaitable.Task.Wait(timeout.Value);
+				else
+					requestWaitable.Task.Wait();
 
 				return requestWaitable.Task.IsCompleted ? requestWaitable.Task.Result : null;
 			}
-			catch (AggregateException)
+			catch (Exception)
 			{
 				return null;
 			}
 		}
 
-		public NetworkResponse SendRequestBlocking([NotNull] TimedObject<NetworkRequest> request)
+		public NetworkResponse WaitOnRequest([NotNull] NetworkResponseFuture requestWaitable, long timeout, TimeUnit timeoutUnit)
 		{
-			return WaitOnRequest(SendRequestWaitable(request));
+			return WaitOnRequest(requestWaitable, TimeUtils.TimeUnitToTimeSpan(timeout, timeoutUnit));
+		}
+
+		public NetworkResponse SendRequestBlocking([NotNull] TimedObject<NetworkRequest> request, TimeSpan? additionalTimeout)
+		{
+			if (additionalTimeout.HasValue)
+			{
+				TimeSpan timeout = request.Timeout + additionalTimeout.Value;
+				return WaitOnRequest(SendRequestWaitable(request), timeout);
+			}
+
+			return WaitOnRequest(SendRequestWaitable(request), request.Timeout);
+		}
+
+		public NetworkResponse SendRequestBlocking([NotNull] TimedObject<NetworkRequest> request, long additionalTimeout = 1, TimeUnit additionalTimeoutUnit = TimeUnit.Seconds)
+		{
+			if (additionalTimeout >= 0)
+			{
+				return SendRequestBlocking(request, TimeUtils.TimeUnitToTimeSpan(additionalTimeout, additionalTimeoutUnit));
+			}
+
+			return SendRequestBlocking(request, null);
 		}
 
 		public TimedObject<NetworkRequest> GetRequest(int id)
@@ -248,9 +273,40 @@ namespace TDHPlugin.Networking
 
 		public void CompleteRequest(TimedObject<NetworkRequest> request, NetworkResponse response)
 		{
-			timedRequestManager.FinishTimedObject(request);
+			lock (timedRequestManager.timedObjects)
+			{
+				timedRequestManager.FinishTimedObject(request);
+			}
 
 			request.obj.ExecuteResponseHandlers(response);
+		}
+
+		public void Dispose()
+		{
+			if (disposed)
+				return;
+
+			disposed = true;
+
+			clientThread = null;
+
+			networkStream?.Close();
+			networkStream = null;
+
+			timedRequestManager.Shutdown();
+
+			try
+			{
+				Socket?.Disconnect(false);
+			}
+			catch (SocketException)
+			{
+			}
+			catch (ObjectDisposedException)
+			{
+			}
+
+			Socket = null;
 		}
 	}
 }

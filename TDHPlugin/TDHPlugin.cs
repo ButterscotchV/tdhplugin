@@ -39,15 +39,14 @@ namespace TDHPlugin
 		[ConfigOption] private readonly int requestTimeoutMs = 5000;
 		public static ClientController Client { get; private set; }
 
-		[ConfigOption] private readonly int disconnectCheckDelayMs = 250;
 		[ConfigOption] private readonly int reconnectDelayMs = 1000;
-		private static bool reconnect = true;
-		public Thread ReconnectThread { get; private set; }
+
+		private Thread reconnectThread;
 
 		[ConfigOption] private readonly int maxRetryPrints = 5;
 		private static int retryPrintCount;
 
-		private static bool clientEnabled;
+		public bool enableReconnect = true;
 
 		[ConfigOption] public readonly Dictionary<string, string> rolePerks = new Dictionary<string, string>();
 		[ConfigOption] public readonly string tagPrefix = "|Dankest Patreon|";
@@ -65,21 +64,17 @@ namespace TDHPlugin
 
 		public override void OnEnable()
 		{
-			Client = new ClientController(this);
-			clientEnabled = true;
-			ReconnectThread = new Thread(ClientReconnectThread);
-			reconnect = true;
-			ReconnectThread.Start();
+			Reconnect();
 
 			Info(Details.name + " v" + Details.version + " has loaded.");
 		}
 
 		public override void OnDisable()
 		{
-			clientEnabled = false;
-			ReconnectThread.Abort();
-			ReconnectThread = null;
+			StopReconnecting();
+
 			Client?.Close();
+			Client = null;
 
 			Info(Details.name + " v" + Details.version + " was disabled.");
 		}
@@ -104,54 +99,75 @@ namespace TDHPlugin
 			Singleton?.Error(message);
 		}
 
-		public void ClientReconnectThread()
+		private void ReconnectThread()
 		{
-			while (clientEnabled)
+			try
 			{
-				if (reconnect)
+				while (enableReconnect)
 				{
 					bool shouldPrint = maxRetryPrints <= 0 || retryPrintCount < maxRetryPrints;
 
 					if (shouldPrint)
 						Write("Attempting connection to TDH Bot...");
 
-					if (Client.Connect(botIp, botPort))
+					ClientController tempClient = new ClientController(this);
+					if (tempClient.Connect(botIp, botPort))
 					{
-						reconnect = false;
 						retryPrintCount = 0;
 
 						Write("Successfully connected to TDH Bot!");
+
+						Client = tempClient;
+
+						return;
 					}
-					else
-					{
-						if (shouldPrint)
-							Write($"Failed to connect to TDH Bot, retrying in {reconnectDelayMs} ms...");
 
-						unchecked
-						{
-							retryPrintCount++;
-						}
+					tempClient.Close();
 
-						if (retryPrintCount == maxRetryPrints)
-							Write($"Hit max retry messages ({maxRetryPrints}), no longer printing retries.");
+					if (shouldPrint)
+						Write($"Failed to connect to TDH Bot, retrying in {reconnectDelayMs} ms...");
 
-						Thread.Sleep(reconnectDelayMs);
-					}
-				}
-				else
-				{
-					Thread.Sleep(disconnectCheckDelayMs);
+					if (unchecked(++retryPrintCount) == maxRetryPrints)
+						Write($"Hit max retry messages ({maxRetryPrints}), no longer printing retries.");
 
-					Client.IsConnected();
+					Thread.Sleep(reconnectDelayMs);
 				}
 			}
+			catch (ThreadInterruptedException)
+			{
+			}
+			finally
+			{
+				reconnectThread = null;
+			}
+		}
+
+		public void Reconnect()
+		{
+			if (reconnectThread != null && !reconnectThread.IsAlive)
+			{
+				reconnectThread.Start();
+			}
+			else
+			{
+				reconnectThread = new Thread(ReconnectThread);
+				reconnectThread.Start();
+			}
+		}
+
+		public void StopReconnecting()
+		{
+			if (reconnectThread == null) return;
+
+			reconnectThread.Interrupt();
+			reconnectThread.Join();
 		}
 
 		public void OnClientDisconnect(ClientController controller)
 		{
-			reconnect = true;
-
 			Write("Disconnected from TDH Bot.");
+
+			Reconnect();
 		}
 
 		public void OnClientMessage(ClientController controller, NetworkMessage message)
